@@ -60,7 +60,7 @@ async function testConnection(
 }
 
 async function setThinkingEffort(): Promise<void> {
-  const config = vscode.workspace.getConfiguration('glm-chat-provider');
+  const config = vscode.workspace.getConfiguration('glm-models-provider');
   const current = config.get<string>('defaultThinkingMode', 'auto');
 
   const items = [
@@ -169,7 +169,7 @@ async function setTemperature(): Promise<void> {
   }
 
   await vscode.workspace
-    .getConfiguration('glm-chat-provider')
+    .getConfiguration('glm-models-provider')
     .update('temperature', value, true);
   vscode.window.showInformationMessage(`GLM temperature set to ${value}`);
 }
@@ -185,7 +185,7 @@ export function activate(context: vscode.ExtensionContext): void {
   usageStatusBarItem.text = 'GLM: $(database) 0 req';
   usageStatusBarItem.tooltip =
     'Requests this session. Resets every 5h. Click to manage.';
-  usageStatusBarItem.command = 'glm-chat-provider.manage';
+  usageStatusBarItem.command = 'glm-models-provider.manage';
 
   const onUsage: UsageCallback = () => {
     requestCount += 1;
@@ -208,16 +208,19 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     usageStatusBarItem,
     vscode.lm.registerLanguageModelChatProvider('zai', provider),
-    vscode.commands.registerCommand('glm-chat-provider.setApiKey', async () => {
-      await setApiKey(authManager, provider);
-    }),
     vscode.commands.registerCommand(
-      'glm-chat-provider.clearApiKey',
+      'glm-models-provider.setApiKey',
+      async () => {
+        await setApiKey(authManager, provider);
+      },
+    ),
+    vscode.commands.registerCommand(
+      'glm-models-provider.clearApiKey',
       async () => {
         await clearApiKey(authManager, provider);
       },
     ),
-    vscode.commands.registerCommand('glm-chat-provider.manage', async () => {
+    vscode.commands.registerCommand('glm-models-provider.manage', async () => {
       const choice = await vscode.window.showQuickPick(
         Object.keys(manageActions),
         {
@@ -231,13 +234,13 @@ export function activate(context: vscode.ExtensionContext): void {
       await action();
     }),
     vscode.commands.registerCommand(
-      'glm-chat-provider.setThinkingEffort',
+      'glm-models-provider.setThinkingEffort',
       async () => {
         await setThinkingEffort();
       },
     ),
     vscode.commands.registerCommand(
-      'glm-chat-provider.setTemperature',
+      'glm-models-provider.setTemperature',
       async () => {
         await setTemperature();
       },

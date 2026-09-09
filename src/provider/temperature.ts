@@ -13,7 +13,7 @@ export function normalizeTemperatureValue(value: unknown): number | undefined {
 
   if (value === 'custom') {
     const custom = vscode.workspace
-      .getConfiguration('glm-chat-provider')
+      .getConfiguration('glm-models-provider')
       .get<number>('temperature');
     if (custom !== undefined && !Number.isNaN(custom))
       return Math.max(0, Math.min(1, custom));

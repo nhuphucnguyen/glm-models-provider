@@ -1,6 +1,8 @@
-# GLM Chat Provider
+# GLM Models Provider
 
 Z.AI GLM models as a VS Code Language Model Chat Provider for the Coding Plan.
+
+> **Maintained fork** — the original extension by [DenizhanDaklr](https://github.com/zelosleone/glm-chat-provider) is no longer maintained. This fork continues development with support for the latest GLM-5.3 models.
 
 ## Why only GLM-5.3 and GLM-5.3-Flash?
 
@@ -39,7 +41,7 @@ Run `GLM: Set Thinking Effort` from the Command Palette to choose between:
 - **High** -- Enhanced reasoning
 - **Max** -- Deep reasoning, best for complex tasks (API default)
 
-The selected value is persisted in your VS Code settings under `glm-chat-provider.defaultThinkingMode`.
+The selected value is persisted in your VS Code settings under `glm-models-provider.defaultThinkingMode`.
 
 ## How to Use
 

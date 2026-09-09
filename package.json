@@ -1,14 +1,14 @@
 {
-  "name": "glm-chat-provider",
-  "displayName": "GLM Chat Provider",
+  "name": "glm-models-provider",
+  "displayName": "GLM Models Provider",
   "description": "Z.AI GLM models as VS Code Language Model Chat Provider",
-  "version": "0.7.1",
-  "publisher": "DenizhanDaklr",
+  "version": "0.8.0",
+  "publisher": "phucnguyennhu",
   "license": "MIT",
   "icon": "images/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zelosleone/glm-chat-provider"
+    "url": "https://github.com/nhuphucnguyen/glm-models-provider"
   },
   "engines": {
     "vscode": "^1.116.0"
@@ -54,9 +54,9 @@
       }
     ],
     "configuration": {
-      "title": "GLM Chat Provider",
+      "title": "GLM Models Provider",
       "properties": {
-        "glm-chat-provider.defaultThinkingMode": {
+        "glm-models-provider.defaultThinkingMode": {
           "type": "string",
           "default": "auto",
           "enum": [
@@ -73,7 +73,7 @@
           ],
           "description": "Default thinking effort for GLM models (GLM-5.3 always thinks and cannot be disabled)"
         },
-        "glm-chat-provider.temperature": {
+        "glm-models-provider.temperature": {
           "type": "number",
           "default": 0.7,
           "minimum": 0,
@@ -85,23 +85,23 @@
     },
     "commands": [
       {
-        "command": "glm-chat-provider.setApiKey",
+        "command": "glm-models-provider.setApiKey",
         "title": "GLM: Set API Key"
       },
       {
-        "command": "glm-chat-provider.clearApiKey",
+        "command": "glm-models-provider.clearApiKey",
         "title": "GLM: Clear API Key"
       },
       {
-        "command": "glm-chat-provider.manage",
+        "command": "glm-models-provider.manage",
         "title": "GLM: Manage Provider"
       },
       {
-        "command": "glm-chat-provider.setThinkingEffort",
+        "command": "glm-models-provider.setThinkingEffort",
         "title": "GLM: Set Thinking Effort"
       },
       {
-        "command": "glm-chat-provider.setTemperature",
+        "command": "glm-models-provider.setTemperature",
         "title": "GLM: Set Temperature"
       }
     ]
@@ -115,9 +115,9 @@
     "lint": "gts lint",
     "clean": "gts clean",
     "fix": "gts fix",
-    "prepare": "npm.cmd run compile",
-    "pretest": "npm.cmd run compile",
-    "posttest": "npm.cmd run lint"
+    "prepare": "npm run compile",
+    "pretest": "npm run compile",
+    "posttest": "npm run lint"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",

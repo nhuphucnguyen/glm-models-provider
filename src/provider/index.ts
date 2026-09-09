@@ -177,7 +177,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     }
 
     const config = vscode.workspace
-      .getConfiguration('glm-chat-provider')
+      .getConfiguration('glm-models-provider')
       .get<string>('defaultThinkingMode', 'auto');
 
     return effortFor(config);

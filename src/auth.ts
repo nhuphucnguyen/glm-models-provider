@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-const API_KEY_SECRET_KEY = 'glm-chat-provider.apiKey';
+const API_KEY_SECRET_KEY = 'glm-models-provider.apiKey';
 
 export class AuthManager {
   constructor(private readonly secrets: vscode.SecretStorage) {}
