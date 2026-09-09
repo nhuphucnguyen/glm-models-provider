@@ -2,45 +2,42 @@
 
 Z.AI GLM models as a VS Code Language Model Chat Provider for the Coding Plan.
 
+## Why only GLM-5.3 and GLM-5.3-Flash?
+
+Z.AI has moved the GLM Coding Plan to GLM-5.3 and GLM-5.3-Flash. Per the [official plan overview](https://docs.z.ai/devpack/overview#supported-models), requests for GLM-5.2/GLM-5.1 are **automatically routed to GLM-5.3**, and requests for GLM-4.7 are routed to GLM-5.3-Flash -- the legacy models no longer exist as distinct options. Keeping them in the picker would only add clutter:
+
+- **GLM-5.3** is the current flagship -- same price as GLM-5.2, with significantly stronger coding and long-horizon performance, plus a full 1M-token context.
+- **GLM-5.3-Flash** outperforms GLM-5.2 while costing roughly 20x less, and it is natively multimodal (image input).
+
 ### Text Models
 
 | Model | Context | Output | Tool Calling |
 |---|---|---|---|
-| GLM-5.1 | 200K | 131K | Yes |
-| GLM-5 | 205K | 131K | Yes |
-| GLM-5-Turbo | 200K | 131K | Yes |
-| GLM-4.7 | 205K | 131K | Yes |
-| GLM-4.7-Flash | 200K | 131K | Yes |
-| GLM-4.7-FlashX | 200K | 131K | Yes |
-| GLM-4.6 | 205K | 131K | Yes |
-| GLM-4.5 | 131K | 98K | Yes |
-| GLM-4.5-Flash | 131K | 98K | Yes |
-| GLM-4.5-Air | 131K | 98K | Yes |
+| GLM-5.3 | 1M | 128K | Yes |
 
 ### Vision Models
 
 | Model | Context | Output | Image Input | Tool Calling |
 |---|---|---|---|---|
-| GLM-5V-Turbo | 200K | 131K | Yes | Yes |
-| GLM-4.6V | 128K | 33K | Yes | Yes |
-| GLM-4.5V | 64K | 16K | Yes | Yes |
+| GLM-5.3-Flash | 1M | 128K | Yes | Yes |
 
 ## Commands
 
 - `GLM: Set API Key` -- Store your Z.AI API key in VS Code secrets
 - `GLM: Clear API Key` -- Remove the stored API key
 - `GLM: Manage Provider` -- Open provider management options
-- `GLM: Set Thinking Effort` -- Toggle thinking mode (Auto, Enabled, Disabled)
+- `GLM: Set Thinking Effort` -- Choose reasoning effort (Auto, Low, High, Max)
 
 ## Thinking Mode
 
-For models that support it (GLM-4.5 and above), you can control whether the model uses its reasoning/thinking capability.
+GLM-5.3 models always use reasoning/thinking -- it cannot be disabled. You can control the reasoning depth with `reasoning_effort`.
 
 Run `GLM: Set Thinking Effort` from the Command Palette to choose between:
 
-- **Auto** -- Let the model decide when to think (default)
-- **Enabled** -- Always use thinking mode
-- **Disabled** -- Never use thinking mode
+- **Auto** -- Use the API default effort level (max)
+- **Low** -- Lightweight reasoning, faster responses
+- **High** -- Enhanced reasoning
+- **Max** -- Deep reasoning, best for complex tasks (API default)
 
 The selected value is persisted in your VS Code settings under `glm-chat-provider.defaultThinkingMode`.
 

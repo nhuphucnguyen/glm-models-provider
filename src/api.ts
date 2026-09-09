@@ -49,7 +49,12 @@ export interface ChatOptions {
   stop?: string[];
   thinking?: Record<string, unknown>;
   reasoningEffort?: string;
-  onUsage?: (usage: {prompt_tokens: number; completion_tokens: number; total_tokens: number; cached_tokens?: number}) => void;
+  onUsage?: (usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cached_tokens?: number;
+  }) => void;
 }
 
 export class GlmApiError extends Error {
@@ -262,7 +267,9 @@ export class GlmApiClient {
             prompt_tokens: chunk.usage.prompt_tokens,
             completion_tokens: chunk.usage.completion_tokens,
             total_tokens: chunk.usage.total_tokens,
-            cached_tokens: (chunk.usage as {prompt_tokens_details?: {cached_tokens?: number}}).prompt_tokens_details?.cached_tokens,
+            cached_tokens: (
+              chunk.usage as {prompt_tokens_details?: {cached_tokens?: number}}
+            ).prompt_tokens_details?.cached_tokens,
           });
         }
 

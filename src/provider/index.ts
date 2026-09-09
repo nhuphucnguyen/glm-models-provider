@@ -1,24 +1,24 @@
 import * as vscode from 'vscode';
-import { match } from 'ts-pattern';
-import {
-  GlmApiClient,
-  GlmApiError,
-  type GlmTool,
-} from '../api';
-import type { ChatCompletionChunk } from 'openai/resources/chat/completions/completions';
-import type { AuthManager } from '../auth';
+import {match} from 'ts-pattern';
+import {GlmApiClient, GlmApiError} from '../api';
+import type {ChatCompletionChunk} from 'openai/resources/chat/completions/completions';
+import type {AuthManager} from '../auth';
 import {
   GLM_MODEL_DEFINITIONS,
-  GLM_MODELS,
   getModelConfigurationSchema,
   type GlmModelDefinition,
   type ModelConfigurationOptions,
   type ModelPickerChatInformation,
 } from '../models';
-export { GLM_MODELS };
-import { createThinkingPart } from './thinking';
-import { convertMessages, convertTools, parseToolArguments, type ToolCallBuilder } from './convert';
-import { getConfiguredTemperature } from './temperature';
+export {GLM_MODEL_DEFINITIONS};
+import {createThinkingPart} from './thinking';
+import {
+  convertMessages,
+  convertTools,
+  parseToolArguments,
+  type ToolCallBuilder,
+} from './convert';
+import {getConfiguredTemperature} from './temperature';
 
 type ModelWithApiKey = vscode.LanguageModelChatInformation & {
   __glmApiKey?: string;
@@ -48,7 +48,7 @@ function toChatInfo(m: GlmModelDefinition): ModelPickerChatInformation {
       imageInput: m.capabilities.imageInput,
     },
     ...(m.capabilities.thinking
-      ? { configurationSchema: getModelConfigurationSchema(m.thinkingSupport) }
+      ? {configurationSchema: getModelConfigurationSchema()}
       : {}),
   };
 }
@@ -74,7 +74,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
   constructor(
     private readonly authManager: AuthManager,
     private readonly onUsage?: UsageCallback,
-  ) { }
+  ) {}
 
   fireLanguageModelChatInformationChange(): void {
     this._onDidChangeLanguageModelChatInformation.fire();
@@ -142,40 +142,37 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     }
   }
 
-  private resolveThinking(
-    modelId: string,
-    options?: ModelConfigurationOptions,
-  ): {thinking?: Record<string, unknown>; reasoningEffort?: string} {
-    const def = GLM_MODEL_DEFINITIONS.find(m => m.id === modelId);
-    const canDisable =
-      def?.thinkingSupport === 'on-off' ||
-      def?.thinkingSupport === 'on-off-effort';
-    const hasEffort = def?.thinkingSupport === 'on-off-effort';
+  private resolveThinking(options?: ModelConfigurationOptions): {
+    thinking?: Record<string, unknown>;
+    reasoningEffort?: string;
+  } {
+    // GLM-5.3 family always thinks; requests cannot disable reasoning.
+    // Legacy 'disabled'/'enabled' selections map to explicit effort levels.
+    const effortFor = (
+      mode: string,
+    ): {thinking?: Record<string, unknown>; reasoningEffort?: string} => {
+      switch (mode) {
+        case 'low':
+          return {thinking: {type: 'enabled'}, reasoningEffort: 'low'};
+        case 'high':
+          return {thinking: {type: 'enabled'}, reasoningEffort: 'high'};
+        case 'max':
+          return {thinking: {type: 'enabled'}, reasoningEffort: 'max'};
+        case 'enabled':
+          return {thinking: {type: 'enabled'}};
+        case 'disabled':
+          return {thinking: {type: 'enabled'}, reasoningEffort: 'low'};
+        default:
+          return {};
+      }
+    };
 
     if (options) {
       const configuredMode =
-        options.modelConfiguration?.thinkingMode ?? options.configuration?.thinkingMode;
-
-      if (hasEffort) {
-        if (configuredMode === 'high') {
-          return {thinking: {type: 'enabled'}, reasoningEffort: 'high'};
-        }
-        if (configuredMode === 'max') {
-          return {thinking: {type: 'enabled'}, reasoningEffort: 'max'};
-        }
-        if (configuredMode === 'disabled') {
-          return {thinking: {type: 'disabled'}};
-        }
-      } else {
-        if (configuredMode === 'enabled') {
-          // For GLM 5.1+/5/4.7 series, thinking is enabled by default.
-          // Sending clear_thinking alongside type: 'enabled' causes a validation
-          // error on newer models. Only send {type: 'enabled'} without extra fields.
-          return {thinking: {type: 'enabled'}};
-        }
-        if (configuredMode === 'disabled' && canDisable) {
-          return {thinking: {type: 'disabled'}};
-        }
+        options.modelConfiguration?.thinkingMode ??
+        options.configuration?.thinkingMode;
+      if (typeof configuredMode === 'string' && configuredMode !== 'auto') {
+        return effortFor(configuredMode);
       }
     }
 
@@ -183,26 +180,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
       .getConfiguration('glm-chat-provider')
       .get<string>('defaultThinkingMode', 'auto');
 
-    if (hasEffort) {
-      if (config === 'high') {
-        return {thinking: {type: 'enabled'}, reasoningEffort: 'high'};
-      }
-      if (config === 'max') {
-        return {thinking: {type: 'enabled'}, reasoningEffort: 'max'};
-      }
-      if (config === 'disabled') {
-        return {thinking: {type: 'disabled'}};
-      }
-    } else {
-      if (config === 'enabled') {
-        return {thinking: {type: 'enabled'}};
-      }
-      if (config === 'disabled' && canDisable) {
-        return {thinking: {type: 'disabled'}};
-      }
-    }
-
-    return {};
+    return effortFor(config);
   }
 
   private async streamResponse(
@@ -217,7 +195,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
 
     const modelConfig = options as ModelConfigurationOptions;
     const temperature = getConfiguredTemperature(modelConfig);
-    const {thinking, reasoningEffort} = this.resolveThinking(model.id, modelConfig);
+    const {thinking, reasoningEffort} = this.resolveThinking(modelConfig);
 
     const stream = client.streamChat(
       model.id,

@@ -39,7 +39,7 @@ async function testConnection(
 
   const client = new GlmApiClient(key);
   try {
-    await client.chat('glm-4.7', [{role: 'user', content: 'Ping'}], {
+    await client.chat('glm-5.3-flash', [{role: 'user', content: 'Ping'}], {
       maxTokens: 1,
     });
     vscode.window.showInformationMessage('GLM provider test succeeded.');
@@ -66,33 +66,27 @@ async function setThinkingEffort(): Promise<void> {
   const items = [
     {
       label: 'Auto',
-      description: 'Let the model decide when to think',
+      description: 'API default effort level (max)',
       value: 'auto',
       picked: current === 'auto',
     },
     {
-      label: 'Enabled',
-      description: 'Always enable thinking mode',
-      value: 'enabled',
-      picked: current === 'enabled',
+      label: 'Low',
+      description: 'Lightweight reasoning — fastest responses',
+      value: 'low',
+      picked: current === 'low',
     },
     {
       label: 'High',
-      description: 'Thinking enabled, high effort (GLM-5.2+)',
+      description: 'Enhanced reasoning',
       value: 'high',
       picked: current === 'high',
     },
     {
       label: 'Max',
-      description: 'Thinking enabled, max effort (GLM-5.2+)',
+      description: 'Deep reasoning — best for complex tasks (default)',
       value: 'max',
       picked: current === 'max',
-    },
-    {
-      label: 'Disabled',
-      description: 'Always disable thinking mode',
-      value: 'disabled',
-      picked: current === 'disabled',
     },
   ];
 
@@ -112,15 +106,30 @@ async function setThinkingEffort(): Promise<void> {
 
 async function setTemperature(): Promise<void> {
   const presets = [
-    {key: 'balanced', label: 'Balanced', value: 0.7, description: 'Default for most tasks'},
+    {
+      key: 'balanced',
+      label: 'Balanced',
+      value: 0.7,
+      description: 'Default for most tasks',
+    },
     {
       key: 'precise',
       label: 'Precise',
       value: 0.2,
       description: 'Coding / Math (deterministic)',
     },
-    {key: 'creative', label: 'Creative', value: 0.9, description: 'Writing / Brainstorming'},
-    {key: 'max', label: 'Max', value: 1.0, description: 'Maximum (most random)'},
+    {
+      key: 'creative',
+      label: 'Creative',
+      value: 0.9,
+      description: 'Writing / Brainstorming',
+    },
+    {
+      key: 'max',
+      label: 'Max',
+      value: 1.0,
+      description: 'Maximum (most random)',
+    },
   ];
 
   const selection = await vscode.window.showQuickPick(
@@ -130,7 +139,11 @@ async function setTemperature(): Promise<void> {
         description: `${p.value} — ${p.description}`,
         value: p.value,
       })),
-      {label: 'Custom', description: 'Enter your own value (0.0 - 1.0)', value: undefined},
+      {
+        label: 'Custom',
+        description: 'Enter your own value (0.0 - 1.0)',
+        value: undefined,
+      },
     ],
     {placeHolder: 'Select temperature for GLM models'},
   );
@@ -141,7 +154,7 @@ async function setTemperature(): Promise<void> {
   if (selection.value === undefined) {
     const input = await vscode.window.showInputBox({
       prompt: 'Enter temperature value (0.0 - 1.0)',
-      validateInput: (text) => {
+      validateInput: text => {
         const parsed = Number.parseFloat(text);
         if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
           return 'Value must be a number between 0.0 and 1.0';
@@ -155,7 +168,9 @@ async function setTemperature(): Promise<void> {
     value = selection.value;
   }
 
-  await vscode.workspace.getConfiguration('glm-chat-provider').update('temperature', value, true);
+  await vscode.workspace
+    .getConfiguration('glm-chat-provider')
+    .update('temperature', value, true);
   vscode.window.showInformationMessage(`GLM temperature set to ${value}`);
 }
 
@@ -172,7 +187,7 @@ export function activate(context: vscode.ExtensionContext): void {
     'Requests this session. Resets every 5h. Click to manage.';
   usageStatusBarItem.command = 'glm-chat-provider.manage';
 
-  const onUsage: UsageCallback = (_usage) => {
+  const onUsage: UsageCallback = () => {
     requestCount += 1;
     usageStatusBarItem.text = `GLM: $(database) ${requestCount} req`;
     usageStatusBarItem.tooltip = [

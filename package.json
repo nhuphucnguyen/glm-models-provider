@@ -61,15 +61,17 @@
           "default": "auto",
           "enum": [
             "auto",
-            "enabled",
-            "disabled"
+            "low",
+            "high",
+            "max"
           ],
           "enumDescriptions": [
-            "Let the model decide when to think (default behavior)",
-            "Always enable thinking mode",
-            "Always disable thinking mode"
+            "Use the API default effort level (max)",
+            "Lightweight reasoning — faster responses",
+            "Enhanced reasoning",
+            "Deep reasoning — best for complex tasks"
           ],
-          "description": "Default thinking mode for GLM models that support it (GLM-4.5+)"
+          "description": "Default thinking effort for GLM models (GLM-5.3 always thinks and cannot be disabled)"
         },
         "glm-chat-provider.temperature": {
           "type": "number",

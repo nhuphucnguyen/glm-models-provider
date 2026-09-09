@@ -1,7 +1,7 @@
 import type * as vscode from 'vscode';
 
 export type TemperaturePreset = 'balanced' | 'precise' | 'creative' | 'max';
-export type ThinkingMode = 'auto' | 'enabled' | 'disabled' | 'high' | 'max';
+export type ThinkingMode = 'auto' | 'low' | 'high' | 'max';
 
 export const TEMPERATURE_PRESET_VALUES: Record<TemperaturePreset, number> = {
   balanced: 0.7,
@@ -10,87 +10,19 @@ export const TEMPERATURE_PRESET_VALUES: Record<TemperaturePreset, number> = {
   max: 1.0,
 };
 
-function buildModelConfigurationSchema(thinkingSupport?: ThinkingSupport) {
-  if (thinkingSupport === 'always-on') {
-    return {
-      properties: {
-        thinkingMode: {
-          type: 'string',
-          title: 'Thinking',
-          enum: ['enabled'],
-          enumItemLabels: ['Always On'],
-          enumDescriptions: ['Thinking is always active for this model'],
-          default: 'enabled',
-          group: 'navigation',
-        },
-        temperature: {
-          type: 'string',
-          title: 'Temperature',
-          enum: ['balanced', 'precise', 'creative', 'max', 'custom'],
-          enumItemLabels: ['Balanced', 'Precise', 'Creative', 'Max', 'Custom'],
-          enumDescriptions: [
-            'Standard (0.7)',
-            'Low, good for code (0.2)',
-            'Higher, good for writing (0.9)',
-            'Highest (1.0)',
-            'Custom value set in settings',
-          ],
-          default: 'balanced',
-          description: 'Presets (range: 0.0 – 1.0)',
-          group: 'navigation',
-        },
-      },
-    } as const;
-  }
-
-  if (thinkingSupport === 'on-off-effort') {
-    return {
-      properties: {
-        thinkingMode: {
-          type: 'string',
-          title: 'Thinking',
-          enum: ['auto', 'high', 'max', 'disabled'],
-          enumItemLabels: ['Auto', 'High', 'Max', 'Disabled'],
-          enumDescriptions: [
-            'Let the model decide (default)',
-            'Enabled, high effort — faster responses',
-            'Enabled, max effort — best for complex tasks (recommended)',
-            'Disable chain-of-thought',
-          ],
-          default: 'auto',
-          group: 'navigation',
-        },
-        temperature: {
-          type: 'string',
-          title: 'Temperature',
-          enum: ['balanced', 'precise', 'creative', 'max', 'custom'],
-          enumItemLabels: ['Balanced', 'Precise', 'Creative', 'Max', 'Custom'],
-          enumDescriptions: [
-            'Standard (0.7)',
-            'Low, good for code (0.2)',
-            'Higher, good for writing (0.9)',
-            'Highest (1.0)',
-            'Custom value set in settings',
-          ],
-          default: 'balanced',
-          description: 'Presets (range: 0.0 – 1.0)',
-          group: 'navigation',
-        },
-      },
-    } as const;
-  }
-
+function buildModelConfigurationSchema() {
   return {
     properties: {
       thinkingMode: {
         type: 'string',
         title: 'Thinking',
-        enum: ['auto', 'enabled', 'disabled'],
-        enumItemLabels: ['Auto', 'Enabled', 'Disabled'],
+        enum: ['auto', 'low', 'high', 'max'],
+        enumItemLabels: ['Auto', 'Low', 'High', 'Max'],
         enumDescriptions: [
-          'Let the model decide (default)',
-          'Always enable chain-of-thought',
-          'Disable chain-of-thought',
+          'Use the API default effort level (max)',
+          'Lightweight reasoning — faster responses',
+          'Enhanced reasoning',
+          'Deep reasoning — best for complex tasks (default)',
         ],
         default: 'auto',
         group: 'navigation',
@@ -115,19 +47,17 @@ function buildModelConfigurationSchema(thinkingSupport?: ThinkingSupport) {
   } as const;
 }
 
-export const MODEL_CONFIGURATION_SCHEMA_BASE = buildModelConfigurationSchema('on-off');
-export const MODEL_CONFIGURATION_SCHEMA_EFFORT = buildModelConfigurationSchema('on-off-effort');
-
-export function getModelConfigurationSchema(
-  thinkingSupport?: ThinkingSupport,
-): typeof MODEL_CONFIGURATION_SCHEMA_BASE {
-  return buildModelConfigurationSchema(thinkingSupport);
+export function getModelConfigurationSchema(): ReturnType<
+  typeof buildModelConfigurationSchema
+> {
+  return buildModelConfigurationSchema();
 }
 
-export type ModelConfigurationOptions = vscode.ProvideLanguageModelChatResponseOptions & {
-  readonly modelConfiguration?: Record<string, unknown>;
-  readonly configuration?: Record<string, unknown>;
-};
+export type ModelConfigurationOptions =
+  vscode.ProvideLanguageModelChatResponseOptions & {
+    readonly modelConfiguration?: Record<string, unknown>;
+    readonly configuration?: Record<string, unknown>;
+  };
 
 export type ModelPickerChatInformation = vscode.LanguageModelChatInformation & {
   readonly isUserSelectable: boolean;
@@ -137,7 +67,7 @@ export type ModelPickerChatInformation = vscode.LanguageModelChatInformation & {
   readonly configurationSchema?: ReturnType<typeof getModelConfigurationSchema>;
 };
 
-export type ThinkingSupport = 'on-off' | 'always-on' | 'on-off-effort';
+export type ThinkingSupport = 'forced-effort';
 
 export interface GlmModelDefinition {
   id: string;
@@ -152,180 +82,31 @@ export interface GlmModelDefinition {
     imageInput: boolean;
     thinking: boolean;
   };
-  /** 'on-off': thinking can be enabled/disabled via API.
-   *  'always-on': thinking is always active and cannot be disabled.
-   *  'on-off-effort': thinking can be enabled/disabled, with multiple effort levels (high/max). */
+  /** 'forced-effort': thinking is always active and cannot be disabled; effort levels (low/high/max) control reasoning depth. */
   thinkingSupport: ThinkingSupport;
 }
 
 export const GLM_MODEL_DEFINITIONS: readonly GlmModelDefinition[] = [
   {
-    id: 'glm-5.2',
-    name: 'GLM-5.2',
+    id: 'glm-5.3',
+    name: 'GLM-5.3',
     family: 'glm',
-    version: '5.2',
+    version: '5.3',
     detail: 'Z.AI',
     maxInputTokens: 1000000,
     maxOutputTokens: 131072,
     capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off-effort',
+    thinkingSupport: 'forced-effort',
   },
   {
-    id: 'glm-5.1',
-    name: 'GLM-5.1',
+    id: 'glm-5.3-flash',
+    name: 'GLM-5.3 Flash',
     family: 'glm',
-    version: '5.1',
+    version: '5.3-flash',
     detail: 'Z.AI',
-    maxInputTokens: 204800,
-    maxOutputTokens: 131072,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-5',
-    name: 'GLM-5',
-    family: 'glm',
-    version: '5',
-    detail: 'Z.AI',
-    maxInputTokens: 204800,
-    maxOutputTokens: 131072,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-5-turbo',
-    name: 'GLM-5-Turbo',
-    family: 'glm',
-    version: '5-turbo',
-    detail: 'Z.AI',
-    maxInputTokens: 204800,
-    maxOutputTokens: 131072,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-5v-turbo',
-    name: 'GLM-5V-Turbo',
-    family: 'glm',
-    version: '5v-turbo',
-    detail: 'Z.AI',
-    maxInputTokens: 204800,
+    maxInputTokens: 1000000,
     maxOutputTokens: 131072,
     capabilities: {imageInput: true, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-4.7',
-    name: 'GLM-4.7',
-    family: 'glm',
-    version: '4.7',
-    detail: 'Z.AI',
-    maxInputTokens: 204800,
-    maxOutputTokens: 131072,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-4.7-flash',
-    name: 'GLM-4.7 Flash',
-    family: 'glm',
-    version: '4.7-flash',
-    detail: 'Z.AI',
-    maxInputTokens: 204800,
-    maxOutputTokens: 131072,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-4.7-flashx',
-    name: 'GLM-4.7 FlashX',
-    family: 'glm',
-    version: '4.7-flashx',
-    detail: 'Z.AI',
-    maxInputTokens: 204800,
-    maxOutputTokens: 131072,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-4.6',
-    name: 'GLM-4.6',
-    family: 'glm',
-    version: '4.6',
-    detail: 'Z.AI',
-    maxInputTokens: 204800,
-    maxOutputTokens: 131072,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-4.6v',
-    name: 'GLM-4.6V',
-    family: 'glm',
-    version: '4.6v',
-    detail: 'Z.AI',
-    maxInputTokens: 131072,
-    maxOutputTokens: 32768,
-    capabilities: {imageInput: true, toolCalling: true, thinking: true},
-    thinkingSupport: 'on-off',
-  },
-  {
-    id: 'glm-4.5',
-    name: 'GLM-4.5',
-    family: 'glm',
-    version: '4.5',
-    detail: 'Z.AI',
-    maxInputTokens: 131072,
-    maxOutputTokens: 98304,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'always-on',
-  },
-  {
-    id: 'glm-4.5-flash',
-    name: 'GLM-4.5 Flash',
-    family: 'glm',
-    version: '4.5-flash',
-    detail: 'Z.AI',
-    maxInputTokens: 131072,
-    maxOutputTokens: 98304,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'always-on',
-  },
-  {
-    id: 'glm-4.5-air',
-    name: 'GLM-4.5 Air',
-    family: 'glm',
-    version: '4.5-air',
-    detail: 'Z.AI',
-    maxInputTokens: 131072,
-    maxOutputTokens: 98304,
-    capabilities: {imageInput: false, toolCalling: true, thinking: true},
-    thinkingSupport: 'always-on',
-  },
-  {
-    id: 'glm-4.5v',
-    name: 'GLM-4.5V',
-    family: 'glm',
-    version: '4.5v',
-    detail: 'Z.AI',
-    maxInputTokens: 64000,
-    maxOutputTokens: 16384,
-    capabilities: {imageInput: true, toolCalling: true, thinking: true},
-    thinkingSupport: 'always-on',
+    thinkingSupport: 'forced-effort',
   },
 ];
-
-export const GLM_MODELS: vscode.LanguageModelChatInformation[] = GLM_MODEL_DEFINITIONS.map(
-  (m) =>
-    ({
-      id: m.id,
-      name: m.name,
-      family: m.family,
-      version: m.version,
-      tooltip: 'Z.AI',
-      detail: 'Z.AI',
-      maxInputTokens: m.maxInputTokens,
-      maxOutputTokens: m.maxOutputTokens,
-      capabilities: {imageInput: m.capabilities.imageInput, toolCalling: m.capabilities.toolCalling},
-    }) as vscode.LanguageModelChatInformation,
-);
