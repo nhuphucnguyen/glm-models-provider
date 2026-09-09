@@ -18,7 +18,7 @@ import {
   parseToolArguments,
   type ToolCallBuilder,
 } from './convert';
-import {getConfiguredTemperature} from './temperature';
+import {getConfiguredTemperature, getConfiguredTopP} from './temperature';
 
 type ModelWithApiKey = vscode.LanguageModelChatInformation & {
   __glmApiKey?: string;
@@ -195,6 +195,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
 
     const modelConfig = options as ModelConfigurationOptions;
     const temperature = getConfiguredTemperature(modelConfig);
+    const topP = getConfiguredTopP();
     const {thinking, reasoningEffort} = this.resolveThinking(modelConfig);
 
     const stream = client.streamChat(
@@ -204,6 +205,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
         maxTokens: options.modelOptions?.maxTokens as number | undefined,
         tools: convertTools(options.tools),
         temperature,
+        topP,
         thinking,
         reasoningEffort,
         onUsage: this.onUsage,

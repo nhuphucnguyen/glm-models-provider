@@ -197,6 +197,10 @@ export class GlmApiClient {
       params.temperature = options.temperature;
     }
     this.applyOptionalParams(params, options);
+    // Z.AI docs require tool_stream alongside stream when streaming tool calls.
+    if (params.tools) {
+      (params as unknown as Record<string, unknown>).tool_stream = true;
+    }
     return params;
   }
 

@@ -1,8 +1,8 @@
 {
   "name": "glm-models-provider",
   "displayName": "GLM Models Provider",
-  "description": "Z.AI GLM models as VS Code Language Model Chat Provider",
-  "version": "0.8.0",
+  "description": "GLM-5.3 & GLM-5.3-Flash (1M context) as a VS Code Language Model Chat Provider",
+  "version": "0.8.1",
   "publisher": "phucnguyennhu",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -75,10 +75,18 @@
         },
         "glm-models-provider.temperature": {
           "type": "number",
-          "default": 0.7,
+          "default": 1.0,
           "minimum": 0,
           "maximum": 1,
-          "description": "Default temperature when 'Custom' is selected in model picker. Use 'GLM: Set Temperature' command for presets + custom.",
+          "description": "Default temperature when 'Custom' is selected in model picker (Z.AI recommends 1.0). Use 'GLM: Set Temperature' command for presets + custom.",
+          "scope": "application"
+        },
+        "glm-models-provider.topP": {
+          "type": "number",
+          "default": 0.95,
+          "minimum": 0.01,
+          "maximum": 1,
+          "description": "top_p sent with every request (Z.AI recommends 0.95 for GLM-5.3 models).",
           "scope": "application"
         }
       }

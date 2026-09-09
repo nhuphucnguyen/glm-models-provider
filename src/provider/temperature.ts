@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import {
+  DEFAULT_TOP_P,
   TEMPERATURE_PRESET_VALUES,
   type ModelConfigurationOptions,
   type TemperaturePreset,
@@ -38,4 +39,14 @@ export function getConfiguredTemperature(
   const normalized = normalizeTemperatureValue(pickerValue);
   if (normalized !== undefined) return normalized;
   return undefined;
+}
+
+export function getConfiguredTopP(): number {
+  const value = vscode.workspace
+    .getConfiguration('glm-models-provider')
+    .get<number>('topP', DEFAULT_TOP_P);
+  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
+    return DEFAULT_TOP_P;
+  }
+  return Math.min(value, 1);
 }

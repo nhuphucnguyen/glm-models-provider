@@ -110,7 +110,7 @@ async function setTemperature(): Promise<void> {
       key: 'balanced',
       label: 'Balanced',
       value: 0.7,
-      description: 'Default for most tasks',
+      description: 'Standard (0.7)',
     },
     {
       key: 'precise',

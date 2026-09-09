@@ -29,6 +29,7 @@ Z.AI has moved the GLM Coding Plan to GLM-5.3 and GLM-5.3-Flash. Per the [offici
 - `GLM: Clear API Key` -- Remove the stored API key
 - `GLM: Manage Provider` -- Open provider management options
 - `GLM: Set Thinking Effort` -- Choose reasoning effort (Auto, Low, High, Max)
+- `GLM: Set Temperature` -- Choose a temperature preset or enter a custom value (0.0 - 1.0)
 
 ## Thinking Mode
 
@@ -42,6 +43,14 @@ Run `GLM: Set Thinking Effort` from the Command Palette to choose between:
 - **Max** -- Deep reasoning, best for complex tasks (API default)
 
 The selected value is persisted in your VS Code settings under `glm-models-provider.defaultThinkingMode`.
+
+## Sampling Defaults
+
+Per the [official GLM-5.3 docs](https://docs.z.ai/guides/llm/glm-5.3), Z.AI recommends `temperature: 1.0` and `top_p: 0.95` for GLM-5.3 models, so the extension applies them by default:
+
+- The model picker's temperature setting defaults to **Max (1.0)**. You can still pick a preset or custom value per model, or run `GLM: Set Temperature`.
+- Every request sends `top_p: 0.95` (configurable via `glm-models-provider.topP`).
+- When a request streams with tools, `tool_stream: true` is sent alongside `stream: true`.
 
 ## How to Use
 

@@ -10,6 +10,9 @@ export const TEMPERATURE_PRESET_VALUES: Record<TemperaturePreset, number> = {
   max: 1.0,
 };
 
+/** Z.AI-recommended top_p for GLM-5.3 models (see docs.z.ai/guides/vlm/glm-5.3-flash). */
+export const DEFAULT_TOP_P = 0.95;
+
 function buildModelConfigurationSchema() {
   return {
     properties: {
@@ -34,12 +37,12 @@ function buildModelConfigurationSchema() {
         enumItemLabels: ['Balanced', 'Precise', 'Creative', 'Max', 'Custom'],
         enumDescriptions: [
           'Standard (0.7)',
-          'Low, good for code (0.2)',
-          'Higher, good for writing (0.9)',
-          'Highest (1.0)',
+          'Precise, good for code (0.2)',
+          'Creative, good for writing (0.9)',
+          'Recommended by Z.AI (1.0)',
           'Custom value set in settings',
         ],
-        default: 'balanced',
+        default: 'max',
         description: 'Presets (range: 0.0 – 1.0)',
         group: 'navigation',
       },
