@@ -12,4 +12,16 @@ if (hasIgnoresFile) {
   customConfig = [{ignores}];
 }
 
-module.exports = [...customConfig, ...require('gts')];
+module.exports = [
+  ...customConfig,
+  ...require('gts'),
+  {
+    // Tests and the vitest config live outside the build tsconfig (which emits
+    // from src only), so point the type-aware rules at a lint-only project
+    // that covers them.
+    files: ['test/**/*.ts', '*.mts'],
+    languageOptions: {
+      parserOptions: {project: './tsconfig.test.json'},
+    },
+  },
+];
