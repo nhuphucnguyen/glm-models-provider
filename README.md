@@ -54,8 +54,16 @@ Per the [official GLM-5.3 docs](https://docs.z.ai/guides/llm/glm-5.3), Z.AI reco
 
 ## How to Use
 
-1. Open the Command Palette and run `GLM: Set API Key` to configure your API credentials
-2. Use the provider from VS Code's Language Model Chat UI and select **Z.AI GLM**
+1. Open the model picker in VS Code's Chat view and choose **Manage Models…**
+2. Select **Z.AI GLM** and enter your API key when prompted
+3. Pick **GLM-5.3** or **GLM-5.3 Flash** from the model picker
+
+Step 1 is what makes the models appear. VS Code passes the key it collects there
+to the provider, and the provider lists no models until it arrives.
+
+`GLM: Set API Key` stores a key in the extension's own secret storage instead.
+That copy backs **Test Connection** and plan-quota polling when no key has been
+entered through the picker — it does not, on its own, put models in the picker.
 
 ---
 

@@ -19,7 +19,8 @@ type MessageAccumulator = {
   text: string;
   imageParts: GlmContentPart[];
   toolCalls: GlmToolCall[];
-  toolResult?: ToolResult;
+  /** One entry per tool call answered; each becomes its own `tool` message. */
+  toolResults: ToolResult[];
 };
 
 export function parseToolArguments(
@@ -32,15 +33,35 @@ export function parseToolArguments(
   return parsed as Record<string, unknown>;
 }
 
+/**
+ * A tool role message carries plain text, so non-text result content cannot be
+ * represented. Mark it instead of dropping it silently — the model can at least
+ * tell that something was returned.
+ */
+function toolResultItemText(item: unknown): string {
+  if (item instanceof vscode.LanguageModelTextPart) {
+    return item.value;
+  }
+  if (item instanceof vscode.LanguageModelDataPart) {
+    return `[${item.mimeType} content omitted]`;
+  }
+  return '';
+}
+
 export function convertMessages(
   messages: readonly vscode.LanguageModelChatRequestMessage[],
 ): GlmMessage[] {
-  return messages.map(message => toGlmMessage(message));
+  return messages.flatMap(message => toGlmMessages(message));
 }
 
-function toGlmMessage(
+/**
+ * One VS Code message can carry several tool results — one per parallel tool
+ * call — and each needs its own `tool` message answering its own
+ * `tool_call_id`, so this returns a list rather than a single message.
+ */
+function toGlmMessages(
   message: vscode.LanguageModelChatRequestMessage,
-): GlmMessage {
+): GlmMessage[] {
   const accumulated = message.content.reduce<MessageAccumulator>(
     (state, part) =>
       match(part)
@@ -64,14 +85,13 @@ function toGlmMessage(
         }))
         .with(P.instanceOf(vscode.LanguageModelToolResultPart), value => ({
           ...state,
-          toolResult: {
-            callId: value.callId,
-            content: value.content
-              .map(item =>
-                item instanceof vscode.LanguageModelTextPart ? item.value : '',
-              )
-              .join(''),
-          },
+          toolResults: [
+            ...state.toolResults,
+            {
+              callId: value.callId,
+              content: value.content.map(toolResultItemText).join(''),
+            },
+          ],
         }))
         .with(P.instanceOf(vscode.LanguageModelDataPart), value => {
           if (value.mimeType.startsWith('image/')) {
@@ -93,25 +113,23 @@ function toGlmMessage(
           const thinking = readThinkingText(value);
           return thinking ? {...state, text: state.text + thinking} : state;
         }),
-    {text: '', imageParts: [], toolCalls: []},
+    {text: '', imageParts: [], toolCalls: [], toolResults: []},
   );
 
   const role = mapRole(message.role);
-
-  if (accumulated.toolResult) {
-    return {
-      role: 'tool',
-      content: accumulated.toolResult.content,
-      tool_call_id: accumulated.toolResult.callId,
-    };
-  }
+  const messages: GlmMessage[] = accumulated.toolResults.map(result => ({
+    role: 'tool' as const,
+    content: result.content,
+    tool_call_id: result.callId,
+  }));
 
   if (accumulated.toolCalls.length > 0) {
-    return {
+    messages.push({
       role: 'assistant',
       content: accumulated.text,
       tool_calls: accumulated.toolCalls,
-    };
+    });
+    return messages;
   }
 
   if (accumulated.imageParts.length > 0) {
@@ -120,10 +138,16 @@ function toGlmMessage(
       content.push({type: 'text', text: accumulated.text});
     }
     content.push(...accumulated.imageParts);
-    return {role, content};
+    messages.push({role, content});
+    return messages;
   }
 
-  return {role, content: accumulated.text};
+  // Text alongside tool results is kept rather than discarded, but an empty
+  // message is only worth emitting when it is all we have.
+  if (accumulated.text || messages.length === 0) {
+    messages.push({role, content: accumulated.text});
+  }
+  return messages;
 }
 
 function mapRole(

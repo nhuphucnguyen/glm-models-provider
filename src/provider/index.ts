@@ -60,6 +60,70 @@ const TYPED_MODELS: ModelPickerChatInformation[] = GLM_MODEL_DEFINITIONS.map(
   m => toChatInfo(m),
 );
 
+const REDACTED_KEY_PATTERN = /key|secret|token|password/i;
+
+/**
+ * Serialize an options object for diagnostics. Redacts anything that looks
+ * like a credential and tolerates cycles — this logs a shape we do not
+ * control, so it must never throw and never print a secret.
+ */
+function safeStringify(value: unknown): string {
+  const seen = new WeakSet<object>();
+  try {
+    return JSON.stringify(value, (key, val) => {
+      if (key && REDACTED_KEY_PATTERN.test(key)) {
+        return typeof val === 'string' && val.length > 0 ? '<redacted>' : val;
+      }
+      if (typeof val === 'object' && val !== null) {
+        if (seen.has(val)) {
+          return '<circular>';
+        }
+        seen.add(val);
+      }
+      return val;
+    });
+  } catch {
+    return '<unserializable>';
+  }
+}
+
+const CHARS_PER_TOKEN = 4;
+
+/**
+ * Flat per-image cost. The real figure varies with resolution; this exists so
+ * images are not budgeted as free, which is what counting only text parts did.
+ */
+const IMAGE_TOKEN_ESTIMATE = 1024;
+
+function estimateTextTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+
+/**
+ * Token estimate for one message part. Tool calls and tool results are real
+ * payload and must be counted; VS Code budgets the context window from this.
+ */
+function estimatePartTokens(part: unknown): number {
+  if (part instanceof vscode.LanguageModelTextPart) {
+    return estimateTextTokens(part.value);
+  }
+  if (part instanceof vscode.LanguageModelToolCallPart) {
+    return estimateTextTokens(
+      `${part.name}${JSON.stringify(part.input ?? {})}`,
+    );
+  }
+  if (part instanceof vscode.LanguageModelToolResultPart) {
+    return part.content.reduce<number>(
+      (sum, item) => sum + estimatePartTokens(item),
+      0,
+    );
+  }
+  if (part instanceof vscode.LanguageModelDataPart) {
+    return part.mimeType.startsWith('image/') ? IMAGE_TOKEN_ESTIMATE : 0;
+  }
+  return 0;
+}
+
 export type UsageCallback = (
   usage: {
     prompt_tokens: number;
@@ -83,6 +147,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
   constructor(
     private readonly authManager: AuthManager,
     private readonly onUsage?: UsageCallback,
+    private readonly log?: (message: string) => void,
   ) {}
 
   /**
@@ -112,7 +177,15 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     // it may be a resolution probe made while a key is in fact configured. We
     // cannot tell the two apart, so we list nothing but deliberately keep any
     // cached key rather than risk discarding a working one.
+    //
+    // `configuration` is real API but is absent from the stable @types, which
+    // still describe this interface as `{silent}` while the proposed d.ts has
+    // moved to `{configuration}`. Log the whole options object rather than
+    // named fields: which fields arrive is exactly what is in flux.
     if (options.configuration === undefined) {
+      this.log?.(
+        `No models listed: options carried no configuration — ${safeStringify(options)}`,
+      );
       return [];
     }
 
@@ -123,6 +196,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     // A present `configuration` carrying no key is an affirmative signal that
     // the user cleared it, so drop the cached copy the quota poller reads.
     if (!apiKey) {
+      this.log?.('No models listed: configuration present but apiKey is empty');
       this.configuredApiKey = undefined;
       return [];
     }
@@ -372,15 +446,13 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     void model;
     void token;
     if (typeof text === 'string') {
-      return Promise.resolve(Math.ceil(text.length / 4));
+      return Promise.resolve(estimateTextTokens(text));
     }
 
-    let totalChars = 0;
-    for (const part of text.content) {
-      if (part instanceof vscode.LanguageModelTextPart) {
-        totalChars += part.value.length;
-      }
-    }
-    return Promise.resolve(Math.ceil(totalChars / 4));
+    const total = text.content.reduce<number>(
+      (sum, part) => sum + estimatePartTokens(part),
+      0,
+    );
+    return Promise.resolve(total);
   }
 }

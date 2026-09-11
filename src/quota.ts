@@ -128,6 +128,9 @@ function snippet(text: string, max = 300): string {
   return compact.length > max ? `${compact.slice(0, max)}…` : compact;
 }
 
+/** A hung poll blocks every later one, so bound it well under the poll interval. */
+const QUOTA_TIMEOUT_MS = 10_000;
+
 export async function fetchPlanQuota(apiKey: string): Promise<PlanQuota> {
   let response: Response;
   try {
@@ -136,8 +139,15 @@ export async function fetchPlanQuota(apiKey: string): Promise<PlanQuota> {
         Authorization: `Bearer ${apiKey.trim()}`,
         Accept: 'application/json',
       },
+      signal: AbortSignal.timeout(QUOTA_TIMEOUT_MS),
     });
   } catch (error) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      throw new GlmApiError(
+        `request timed out after ${QUOTA_TIMEOUT_MS / 1000}s`,
+        0,
+      );
+    }
     throw new GlmApiError(
       `request failed: ${error instanceof Error ? error.message : String(error)}`,
       0,
