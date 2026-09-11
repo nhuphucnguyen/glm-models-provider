@@ -2,7 +2,7 @@
   "name": "glm-models-provider",
   "displayName": "GLM Models Provider",
   "description": "GLM-5.3 & GLM-5.3-Flash (1M context) as a VS Code Language Model Chat Provider",
-  "version": "0.8.5",
+  "version": "1.0.0",
   "publisher": "phucnguyennhu",
   "license": "MIT",
   "icon": "images/icon.png",
