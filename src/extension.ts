@@ -4,6 +4,7 @@ import {GlmApiClient, GlmApiError} from './api';
 import {AuthManager} from './auth';
 import {GlmChatProvider, type UsageCallback} from './provider';
 import {fetchPlanQuota, type PlanQuota, type PlanWindow} from './quota';
+import {TEMPERATURE_PRESETS} from './models';
 
 async function setApiKey(
   authManager: AuthManager,
@@ -26,10 +27,10 @@ async function testConnection(
   authManager: AuthManager,
   provider: GlmChatProvider,
 ): Promise<void> {
-  const key = await authManager.getApiKey();
-  if (!key) {
+  const resolved = await provider.resolveApiKey();
+  if (!resolved) {
     const shouldSetKey = await vscode.window.showInformationMessage(
-      'No API key in extension storage. Use "GLM: Set API Key" first, then run this test again.',
+      'No API key configured. Set one in the provider settings for Z.AI GLM, or use "GLM: Set API Key", then run this test again.',
       'Set API Key',
     );
     if (shouldSetKey === 'Set API Key') {
@@ -38,9 +39,9 @@ async function testConnection(
     return;
   }
 
-  const client = new GlmApiClient(key);
+  const client = new GlmApiClient(resolved.key);
   try {
-    await client.chat('glm-5.3-flash', [{role: 'user', content: 'Ping'}], {
+    await client.ping('glm-5.3-flash', [{role: 'user', content: 'Ping'}], {
       maxTokens: 1,
     });
     vscode.window.showInformationMessage('GLM provider test succeeded.');
@@ -106,39 +107,12 @@ async function setThinkingEffort(): Promise<void> {
 }
 
 async function setTemperature(): Promise<void> {
-  const presets = [
-    {
-      key: 'balanced',
-      label: 'Balanced',
-      value: 0.7,
-      description: 'Standard (0.7)',
-    },
-    {
-      key: 'precise',
-      label: 'Precise',
-      value: 0.2,
-      description: 'Coding / Math (deterministic)',
-    },
-    {
-      key: 'creative',
-      label: 'Creative',
-      value: 0.9,
-      description: 'Writing / Brainstorming',
-    },
-    {
-      key: 'max',
-      label: 'Max',
-      value: 1.0,
-      description: 'Maximum (most random)',
-    },
-  ];
-
   const selection = await vscode.window.showQuickPick(
     [
-      ...presets.map(p => ({
-        label: p.label,
-        description: `${p.value} — ${p.description}`,
-        value: p.value,
+      ...TEMPERATURE_PRESETS.map(preset => ({
+        label: preset.label,
+        description: `${preset.value} — ${preset.description}`,
+        value: preset.value as number | undefined,
       })),
       {
         label: 'Custom',
@@ -293,6 +267,19 @@ export function activate(context: vscode.ExtensionContext): void {
     usageStatusBarItem.tooltip = tooltip.join('\n');
   };
 
+  // Declared ahead of the quota machinery that closes over it. The three are
+  // mutually dependent — refreshPlanQuota needs the provider to resolve a key,
+  // and the usage callback needs refreshPlanQuota — so the callback is passed
+  // indirectly to break the cycle rather than relying on call-time ordering.
+  const provider = new GlmChatProvider(
+    authManager,
+    (tokenUsage, modelId) => onUsage(tokenUsage, modelId),
+    message =>
+      outputChannel.appendLine(
+        `[${new Date().toLocaleTimeString()}] ${message}`,
+      ),
+  );
+
   const refreshPlanQuota = async (notify: boolean): Promise<void> => {
     if (quotaRefreshInFlight) {
       return;
@@ -372,10 +359,6 @@ export function activate(context: vscode.ExtensionContext): void {
       void refreshPlanQuota(false);
     }
   };
-
-  const provider = new GlmChatProvider(authManager, onUsage, message =>
-    outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${message}`),
-  );
 
   const manageActions: Record<string, () => Promise<void>> = {
     'Set API Key': () => setApiKey(authManager, provider),

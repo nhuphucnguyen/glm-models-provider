@@ -3,12 +3,49 @@ import type * as vscode from 'vscode';
 export type TemperaturePreset = 'balanced' | 'precise' | 'creative' | 'max';
 export type ThinkingMode = 'auto' | 'low' | 'high' | 'max';
 
-export const TEMPERATURE_PRESET_VALUES: Record<TemperaturePreset, number> = {
-  balanced: 0.7,
-  precise: 0.2,
-  creative: 0.9,
-  max: 1.0,
-};
+export interface TemperaturePresetDefinition {
+  readonly id: TemperaturePreset;
+  readonly label: string;
+  readonly value: number;
+  readonly description: string;
+}
+
+/**
+ * The single source for temperature presets. The model-picker schema and the
+ * "GLM: Set Temperature" quick pick both derive from this — they used to carry
+ * their own copies, which had already drifted into contradicting each other
+ * about what 1.0 means.
+ */
+export const TEMPERATURE_PRESETS: readonly TemperaturePresetDefinition[] = [
+  {
+    id: 'balanced',
+    label: 'Balanced',
+    value: 0.7,
+    description: 'Standard',
+  },
+  {
+    id: 'precise',
+    label: 'Precise',
+    value: 0.2,
+    description: 'Precise, good for code',
+  },
+  {
+    id: 'creative',
+    label: 'Creative',
+    value: 0.9,
+    description: 'Creative, good for writing',
+  },
+  {
+    id: 'max',
+    label: 'Max',
+    value: 1.0,
+    description: 'Recommended by Z.AI',
+  },
+];
+
+export const TEMPERATURE_PRESET_VALUES = Object.fromEntries(
+  TEMPERATURE_PRESETS.map(preset => [preset.id, preset.value]),
+) as Record<TemperaturePreset, number>;
 
 /** Z.AI-recommended top_p for GLM-5.3 models (see docs.z.ai/guides/vlm/glm-5.3-flash). */
 export const DEFAULT_TOP_P = 0.95;
@@ -33,13 +70,15 @@ function buildModelConfigurationSchema() {
       temperature: {
         type: 'string',
         title: 'Temperature',
-        enum: ['balanced', 'precise', 'creative', 'max', 'custom'],
-        enumItemLabels: ['Balanced', 'Precise', 'Creative', 'Max', 'Custom'],
+        enum: [...TEMPERATURE_PRESETS.map(preset => preset.id), 'custom'],
+        enumItemLabels: [
+          ...TEMPERATURE_PRESETS.map(preset => preset.label),
+          'Custom',
+        ],
         enumDescriptions: [
-          'Standard (0.7)',
-          'Precise, good for code (0.2)',
-          'Creative, good for writing (0.9)',
-          'Recommended by Z.AI (1.0)',
+          ...TEMPERATURE_PRESETS.map(
+            preset => `${preset.description} (${preset.value})`,
+          ),
           'Custom value set in settings',
         ],
         default: 'max',

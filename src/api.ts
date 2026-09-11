@@ -271,9 +271,7 @@ export class GlmApiClient {
             prompt_tokens: chunk.usage.prompt_tokens,
             completion_tokens: chunk.usage.completion_tokens,
             total_tokens: chunk.usage.total_tokens,
-            cached_tokens: (
-              chunk.usage as {prompt_tokens_details?: {cached_tokens?: number}}
-            ).prompt_tokens_details?.cached_tokens,
+            cached_tokens: chunk.usage.prompt_tokens_details?.cached_tokens,
           });
         }
 
@@ -286,7 +284,12 @@ export class GlmApiClient {
     }
   }
 
-  async chat(
+  /**
+   * Send a minimal non-streaming request purely to see whether the credentials
+   * and endpoint work. The completion is discarded — use `streamChat` to
+   * actually talk to a model.
+   */
+  async ping(
     model: string,
     messages: GlmMessage[],
     options?: ChatOptions,

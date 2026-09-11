@@ -2,8 +2,13 @@ import {GlmApiError} from './api';
 
 const QUOTA_URL = 'https://api.z.ai/api/monitor/usage/quota/limit';
 
-/** Window length in minutes per Z.AI unit enum (1=day, 3=hour, 5=minute, 6=week). */
-const UNIT_MINUTES: Record<number, number> = {1: 1440, 3: 60, 5: 1, 6: 10080};
+/** Z.AI's window-unit enum, with both the length and the display name. */
+const UNITS: Record<number, {minutes: number; name: string}> = {
+  1: {minutes: 1440, name: 'day'},
+  3: {minutes: 60, name: 'hour'},
+  5: {minutes: 1, name: 'minute'},
+  6: {minutes: 10080, name: 'week'},
+};
 
 const FIVE_HOUR_MINUTES = 300;
 const WEEKLY_MINUTES = 7 * 24 * 60;
@@ -64,10 +69,9 @@ function toWindow(
     return undefined;
   }
 
+  const unit = typeof raw.unit === 'number' ? UNITS[raw.unit] : undefined;
   const windowMinutes =
-    typeof raw.unit === 'number' && typeof raw.number === 'number'
-      ? (UNIT_MINUTES[raw.unit] ?? 0) * raw.number
-      : 0;
+    unit && typeof raw.number === 'number' ? unit.minutes * raw.number : 0;
 
   const usedPercent = Math.max(0, Math.min(100, raw.percentage));
   let label: string;
@@ -76,9 +80,7 @@ function toWindow(
   } else if (windowMinutes === WEEKLY_MINUTES) {
     label = 'Weekly window';
   } else {
-    label = `${raw.number ?? '?'} ${
-      {1: 'day', 3: 'hour', 5: 'minute', 6: 'week'}[raw.unit ?? 0] ?? 'window'
-    } window`;
+    label = `${raw.number ?? '?'} ${unit?.name ?? 'window'} window`;
   }
 
   return {
