@@ -36,8 +36,4 @@ export class AuthManager {
     vscode.window.showInformationMessage('GLM API key saved successfully');
     return key;
   }
-
-  async getOrPromptApiKey(): Promise<string | undefined> {
-    return (await this.getApiKey()) ?? this.promptForApiKey();
-  }
 }

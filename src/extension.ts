@@ -297,8 +297,8 @@ export function activate(context: vscode.ExtensionContext): void {
     if (quotaRefreshInFlight) {
       return;
     }
-    const apiKey = await provider.resolveApiKey();
-    if (!apiKey) {
+    const resolved = await provider.resolveApiKey();
+    if (!resolved) {
       quotaStatus = 'no API key configured';
       updateUsageStatusBar();
       usageStatusBarItem.show();
@@ -306,7 +306,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     quotaRefreshInFlight = true;
     try {
-      planQuota = await fetchPlanQuota(apiKey);
+      planQuota = await fetchPlanQuota(resolved.key);
       lastQuotaFetchAt = Date.now();
       const parts: string[] = [];
       if (planQuota.fiveHour) {

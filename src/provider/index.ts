@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import {match} from 'ts-pattern';
 import {GlmApiClient, GlmApiError} from '../api';
 import type {ChatCompletionChunk} from 'openai/resources/chat/completions/completions';
 import type {AuthManager} from '../auth';
@@ -20,9 +19,13 @@ import {
 } from './convert';
 import {getConfiguredTemperature, getConfiguredTopP} from './temperature';
 
-type ModelWithApiKey = vscode.LanguageModelChatInformation & {
-  __glmApiKey?: string;
-};
+/** Where a resolved API key came from, so a 401 can invalidate the right one. */
+export type ApiKeySource = 'configuration' | 'secret';
+
+export interface ResolvedApiKey {
+  key: string;
+  source: ApiKeySource;
+}
 
 type PrepareLanguageModelChatInfoOptions =
   vscode.PrepareLanguageModelChatModelOptions & {
@@ -85,10 +88,15 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
   /**
    * The API key chat requests actually use: VS Code's model configuration
    * first ("Manage models" flow), extension secret storage ("GLM: Set API
-   * Key" command) second.
+   * Key" command) second. Reports which source won so that an auth failure
+   * can invalidate that key and not the other one.
    */
-  async resolveApiKey(): Promise<string | undefined> {
-    return this.configuredApiKey ?? (await this.authManager.getApiKey());
+  async resolveApiKey(): Promise<ResolvedApiKey | undefined> {
+    if (this.configuredApiKey) {
+      return {key: this.configuredApiKey, source: 'configuration'};
+    }
+    const stored = await this.authManager.getApiKey();
+    return stored ? {key: stored, source: 'secret'} : undefined;
   }
 
   fireLanguageModelChatInformationChange(): void {
@@ -100,6 +108,10 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     token: vscode.CancellationToken,
   ): Promise<vscode.LanguageModelChatInformation[]> {
     void token;
+    // An absent `configuration` is ambiguous: it may mean "not configured", or
+    // it may be a resolution probe made while a key is in fact configured. We
+    // cannot tell the two apart, so we list nothing but deliberately keep any
+    // cached key rather than risk discarding a working one.
     if (options.configuration === undefined) {
       return [];
     }
@@ -108,21 +120,15 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     const apiKey =
       typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : undefined;
 
+    // A present `configuration` carrying no key is an affirmative signal that
+    // the user cleared it, so drop the cached copy the quota poller reads.
     if (!apiKey) {
+      this.configuredApiKey = undefined;
       return [];
     }
 
     this.configuredApiKey = apiKey;
-    return this.modelsWithApiKey(apiKey);
-  }
-
-  private modelsWithApiKey(
-    apiKey: string,
-  ): vscode.LanguageModelChatInformation[] {
-    return TYPED_MODELS.map(model => ({
-      ...model,
-      __glmApiKey: apiKey,
-    })) as unknown as vscode.LanguageModelChatInformation[];
+    return TYPED_MODELS;
   }
 
   async provideLanguageModelChatResponse(
@@ -132,13 +138,9 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     progress: vscode.Progress<vscode.LanguageModelResponsePart>,
     token: vscode.CancellationToken,
   ): Promise<void> {
-    const modelApiKey = (model as ModelWithApiKey).__glmApiKey;
-    const apiKey =
-      modelApiKey && modelApiKey.trim().length > 0
-        ? modelApiKey
-        : await this.authManager.getOrPromptApiKey();
+    const resolved = await this.resolveApiKey();
 
-    if (!apiKey) {
+    if (!resolved) {
       throw new Error(
         'API key not configured. Use "GLM: Set API Key" command.',
       );
@@ -146,7 +148,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
 
     try {
       await this.streamResponse(
-        new GlmApiClient(apiKey),
+        new GlmApiClient(resolved.key),
         model,
         messages,
         options,
@@ -154,7 +156,13 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
         token,
       );
     } catch (error) {
-      await this.throwMappedError(error);
+      // The SDK rejects the pending read when the request is aborted, so the
+      // in-loop cancellation guards never get to run. Surface the user's Stop
+      // as cancellation rather than as an API failure.
+      if (token.isCancellationRequested) {
+        throw new vscode.CancellationError();
+      }
+      await this.throwMappedError(error, resolved.source);
     }
   }
 
@@ -319,26 +327,41 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     builders.clear();
   }
 
-  private async throwMappedError(error: unknown): Promise<never> {
+  private async throwMappedError(
+    error: unknown,
+    source: ApiKeySource,
+  ): Promise<never> {
     if (!(error instanceof GlmApiError)) {
       throw error;
     }
 
-    await match(error.statusCode)
-      .with(401, async () => {
-        await this.authManager.deleteApiKey();
-        throw new Error(
-          'Invalid API key. Please set a new one using "GLM: Set API Key".',
-        );
-      })
-      .with(429, async () => {
-        throw new Error('Rate limit exceeded. Please wait and try again.');
-      })
-      .otherwise(async () => {
-        throw new Error(`GLM API error: ${error.message}`);
-      });
+    if (error.statusCode === 401) {
+      throw await this.invalidateApiKey(source);
+    }
+    if (error.statusCode === 429) {
+      throw new Error('Rate limit exceeded. Please wait and try again.');
+    }
+    throw new Error(`GLM API error: ${error.message}`);
+  }
 
-    throw error;
+  /**
+   * Discard only the key that actually failed. Deleting the stored key after a
+   * configuration key was rejected would destroy a credential that may well be
+   * valid, while leaving the failing one in place.
+   */
+  private async invalidateApiKey(source: ApiKeySource): Promise<Error> {
+    if (source === 'secret') {
+      await this.authManager.deleteApiKey();
+    } else {
+      this.configuredApiKey = undefined;
+    }
+    this.fireLanguageModelChatInformationChange();
+
+    return new Error(
+      source === 'secret'
+        ? 'Invalid API key. Please set a new one using "GLM: Set API Key".'
+        : 'Invalid API key. Update it in the provider settings for Z.AI GLM.',
+    );
   }
 
   provideTokenCount(
