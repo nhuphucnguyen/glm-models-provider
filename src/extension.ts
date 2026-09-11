@@ -373,7 +373,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
-  const provider = new GlmChatProvider(authManager, onUsage);
+  const provider = new GlmChatProvider(authManager, onUsage, message =>
+    outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${message}`),
+  );
 
   const manageActions: Record<string, () => Promise<void>> = {
     'Set API Key': () => setApiKey(authManager, provider),
