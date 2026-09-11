@@ -22,7 +22,18 @@ OpenAI-compatible.
 | `src/models.ts` | Model definitions + model-picker config schema |
 
 Build is esbuild (`bundle.mjs`) → `out/extension.js`, target `node20`, `vscode`
-external. No test suite; `tsc --noEmit` and `gts lint` are the gates.
+external.
+
+`npm test` runs compile → vitest → lint. Tests alias the `vscode` module to
+`test/vscode-stub.ts`, since the real one exists only inside the extension host;
+the stub's `LanguageModelChatMessageRole` values must match the real enum,
+because `mapRole` compares against them. Tests are covered by
+`tsconfig.test.json`, a lint-only project — the build `tsconfig.json` emits from
+`src` alone.
+
+Anything reachable without the extension host (message conversion, quota
+parsing, temperature normalization) should get a test. The provider, status bar
+and commands need a running VS Code and are still verified by hand.
 
 ## Dependencies: policy and the reasoning behind it
 
@@ -160,6 +171,21 @@ Do not "clean these up" without reading why they exist.
 - **GLM-5.3 always reasons.** Thinking cannot be disabled; only the effort level
   varies. A `disabled` selection maps to `reasoning_effort: 'low'`, not to
   thinking off (`resolveThinking` in `src/provider/index.ts`).
+- **`configuration` on `PrepareLanguageModelChatModelOptions` is real API, and
+  the interface is churning.** Stable `@types/vscode` (1.116 and 1.137) declares
+  `{silent}` only; `vscode.proposed.chatProvider.d.ts` declares `{configuration}`
+  and has dropped `silent`. `src/provider/index.ts` augments the type locally to
+  bridge that. Expect a future typings sync to need attention here — and do not
+  "fix" it by declaring `managementCommand`, which the contribution-points
+  reference marks deprecated in favour of `configuration`.
+- **This extension has no legacy users — don't write migration code.** The git
+  history predates the fork: commits before `5caee52` belong to
+  `DenizhanDaklr.glm-chat-provider`, a *different* extension id with different
+  setting keys (`glm-chat-provider.*`) and its own secret storage.
+  `phucnguyennhu.glm-models-provider` starts at v0.8.0. Archaeology in this repo
+  will keep turning up "orphaned settings" and "unreachable legacy branches";
+  they belong to the upstream extension, not to ours. Nothing here needs a
+  compatibility path.
 - **API keys are validated as plain ASCII** (`src/api.ts`) because a smart quote
   or non-breaking space from a console copy-paste otherwise fails deep inside
   header encoding with an unhelpful error.
@@ -173,7 +199,11 @@ Do not "clean these up" without reading why they exist.
 ## Before committing
 
 ```sh
-npx tsc --noEmit && npx gts lint && node bundle.mjs
+npm test && node bundle.mjs
 ```
+
+`npm test` already covers compile and lint. Add `node bundle.mjs` because the
+bundle is what ships, and because bundle size is a standing constraint (see the
+dependency section).
 
 `*.vsix` and `out/` are gitignored; don't add them.
