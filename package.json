@@ -75,7 +75,7 @@
         },
         "glm-models-provider.temperature": {
           "type": "number",
-          "default": 1.0,
+          "default": 1,
           "minimum": 0,
           "maximum": 1,
           "description": "Default temperature when 'Custom' is selected in model picker (Z.AI recommends 1.0). Use 'GLM: Set Temperature' command for presets + custom.",
@@ -125,6 +125,7 @@
     "fix": "gts fix",
     "prepare": "npm run compile",
     "pretest": "npm run compile",
+    "test": "vitest run",
     "posttest": "npm run lint"
   },
   "devDependencies": {
@@ -133,7 +134,8 @@
     "esbuild": "^0.28.1",
     "eslint": "9.39.2",
     "gts": "^7.0.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^5.0.0"
   },
   "dependencies": {
     "openai": "6.34.0",
