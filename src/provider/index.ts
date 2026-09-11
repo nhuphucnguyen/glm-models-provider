@@ -57,12 +57,15 @@ const TYPED_MODELS: ModelPickerChatInformation[] = GLM_MODEL_DEFINITIONS.map(
   m => toChatInfo(m),
 );
 
-export type UsageCallback = (usage: {
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-  cached_tokens?: number;
-}) => void;
+export type UsageCallback = (
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cached_tokens?: number;
+  },
+  modelId?: string,
+) => void;
 
 export class GlmChatProvider implements vscode.LanguageModelChatProvider {
   private readonly _onDidChangeLanguageModelChatInformation =
@@ -71,10 +74,22 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
   readonly onDidChangeLanguageModelChatInformation =
     this._onDidChangeLanguageModelChatInformation.event;
 
+  /** Latest API key supplied by VS Code's model configuration, when present. */
+  private configuredApiKey?: string;
+
   constructor(
     private readonly authManager: AuthManager,
     private readonly onUsage?: UsageCallback,
   ) {}
+
+  /**
+   * The API key chat requests actually use: VS Code's model configuration
+   * first ("Manage models" flow), extension secret storage ("GLM: Set API
+   * Key" command) second.
+   */
+  async resolveApiKey(): Promise<string | undefined> {
+    return this.configuredApiKey ?? (await this.authManager.getApiKey());
+  }
 
   fireLanguageModelChatInformationChange(): void {
     this._onDidChangeLanguageModelChatInformation.fire();
@@ -97,6 +112,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
       return [];
     }
 
+    this.configuredApiKey = apiKey;
     return this.modelsWithApiKey(apiKey);
   }
 
@@ -208,7 +224,7 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
         topP,
         thinking,
         reasoningEffort,
-        onUsage: this.onUsage,
+        onUsage: tokenUsage => this.onUsage?.(tokenUsage, model.id),
       },
       token,
     );

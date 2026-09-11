@@ -3,6 +3,7 @@ import {match} from 'ts-pattern';
 import {GlmApiClient, GlmApiError} from './api';
 import {AuthManager} from './auth';
 import {GlmChatProvider, type UsageCallback} from './provider';
+import {fetchPlanQuota, type PlanQuota, type PlanWindow} from './quota';
 
 async function setApiKey(
   authManager: AuthManager,
@@ -174,27 +175,202 @@ async function setTemperature(): Promise<void> {
   vscode.window.showInformationMessage(`GLM temperature set to ${value}`);
 }
 
+interface UsageTotals {
+  requests: number;
+  promptTokens: number;
+  completionTokens: number;
+  cachedTokens: number;
+  totalTokens: number;
+}
+
+function formatTokenCount(tokens: number): string {
+  if (tokens >= 1_000_000) {
+    return `${(tokens / 1_000_000).toFixed(1)}M`;
+  }
+  if (tokens >= 1_000) {
+    return `${(tokens / 1_000).toFixed(1)}k`;
+  }
+  return String(tokens);
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) {
+    return 'now';
+  }
+  const totalMinutes = Math.max(1, Math.round(ms / 60_000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  }
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
+function describePlanWindow(win: PlanWindow): string {
+  let line = `${win.label}: ${100 - win.usedPercent}% remaining`;
+  if (win.remaining !== undefined) {
+    line += ` (${formatTokenCount(win.remaining)} tokens)`;
+  }
+  if (win.resetTime !== undefined) {
+    line += ` · resets in ${formatCountdown(win.resetTime - Date.now())}`;
+  }
+  return line;
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const authManager = new AuthManager(context.secrets);
+  const outputChannel = vscode.window.createOutputChannel(
+    'GLM Models Provider',
+  );
 
-  let requestCount = 0;
+  const usage: UsageTotals = {
+    requests: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    cachedTokens: 0,
+    totalTokens: 0,
+  };
+
+  let planQuota: PlanQuota | undefined;
+  let quotaStatus: string | undefined;
+  let lastQuotaFetchAt = 0;
+  let quotaRefreshInFlight = false;
+
   const usageStatusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100,
   );
   usageStatusBarItem.text = 'GLM: $(database) 0 req';
-  usageStatusBarItem.tooltip =
-    'Requests this session. Resets every 5h. Click to manage.';
+  usageStatusBarItem.tooltip = 'No requests yet this session. Click to manage.';
   usageStatusBarItem.command = 'glm-models-provider.manage';
 
-  const onUsage: UsageCallback = () => {
-    requestCount += 1;
-    usageStatusBarItem.text = `GLM: $(database) ${requestCount} req`;
-    usageStatusBarItem.tooltip = [
-      `Requests this session: ${requestCount}`,
-      'Click to manage provider',
-    ].join('\n');
+  const updateUsageStatusBar = (): void => {
+    const quotaSegments: string[] = [];
+    if (planQuota?.fiveHour) {
+      quotaSegments.push(`5h ${100 - planQuota.fiveHour.usedPercent}%`);
+    }
+    if (planQuota?.weekly) {
+      quotaSegments.push(`wk ${100 - planQuota.weekly.usedPercent}%`);
+    }
+    const quotaSuffix = quotaSegments.length
+      ? ` · ${quotaSegments.join(' · ')}`
+      : '';
+
+    if (usage.requests === 0 && !planQuota && !quotaStatus) {
+      usageStatusBarItem.text = 'GLM: $(database) 0 req';
+      usageStatusBarItem.tooltip =
+        'No requests yet this session. Click to manage.';
+      return;
+    }
+    usageStatusBarItem.text = `GLM: $(database) ${usage.requests} req · ${formatTokenCount(usage.totalTokens)} tok${quotaSuffix}`;
+    const tooltip = [
+      'GLM usage this session',
+      `Requests: ${usage.requests}`,
+      `Prompt tokens: ${usage.promptTokens.toLocaleString()} (cached ${usage.cachedTokens.toLocaleString()})`,
+      `Completion tokens: ${usage.completionTokens.toLocaleString()}`,
+      `Total tokens: ${usage.totalTokens.toLocaleString()}`,
+    ];
+    if (planQuota?.fiveHour || planQuota?.weekly) {
+      tooltip.push('');
+      tooltip.push(
+        `Z.AI Coding Plan${planQuota.planName ? ` (${planQuota.planName})` : ''}`,
+      );
+      if (planQuota.fiveHour) {
+        tooltip.push(describePlanWindow(planQuota.fiveHour));
+      }
+      if (planQuota.weekly) {
+        tooltip.push(describePlanWindow(planQuota.weekly));
+      }
+    } else if (quotaStatus) {
+      tooltip.push('');
+      tooltip.push(`Plan quota: ${quotaStatus}`);
+    }
+    tooltip.push('Click to manage provider');
+    usageStatusBarItem.tooltip = tooltip.join('\n');
+  };
+
+  const refreshPlanQuota = async (notify: boolean): Promise<void> => {
+    if (quotaRefreshInFlight) {
+      return;
+    }
+    const apiKey = await provider.resolveApiKey();
+    if (!apiKey) {
+      quotaStatus = 'no API key configured';
+      updateUsageStatusBar();
+      usageStatusBarItem.show();
+      return;
+    }
+    quotaRefreshInFlight = true;
+    try {
+      planQuota = await fetchPlanQuota(apiKey);
+      lastQuotaFetchAt = Date.now();
+      const parts: string[] = [];
+      if (planQuota.fiveHour) {
+        parts.push(describePlanWindow(planQuota.fiveHour));
+      }
+      if (planQuota.weekly) {
+        parts.push(describePlanWindow(planQuota.weekly));
+      }
+      if (parts.length) {
+        quotaStatus = 'ok';
+        outputChannel.appendLine(
+          `[${new Date().toLocaleTimeString()}] Plan quota${planQuota.planName ? ` (${planQuota.planName})` : ''}: ${parts.join(' — ')}`,
+        );
+      } else {
+        quotaStatus = `no plan windows found (${(planQuota.limitTypes ?? []).join(', ') || 'no limits in response'})`;
+        outputChannel.appendLine(
+          `[${new Date().toLocaleTimeString()}] Plan quota: ${quotaStatus}`,
+        );
+      }
+      if (notify) {
+        const summary = parts.length
+          ? parts.join('\n')
+          : (quotaStatus ?? 'No coding plan quota windows reported.');
+        vscode.window.showInformationMessage(`GLM plan quota:\n${summary}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      quotaStatus = message;
+      outputChannel.appendLine(
+        `[${new Date().toLocaleTimeString()}] Plan quota refresh failed: ${message}`,
+      );
+      if (notify) {
+        vscode.window.showErrorMessage(
+          `GLM plan quota unavailable: ${message}`,
+        );
+      }
+    } finally {
+      quotaRefreshInFlight = false;
+    }
+    updateUsageStatusBar();
     usageStatusBarItem.show();
+  };
+
+  const onUsage: UsageCallback = (tokenUsage, modelId) => {
+    usage.requests += 1;
+    usage.promptTokens += tokenUsage.prompt_tokens;
+    usage.completionTokens += tokenUsage.completion_tokens;
+    usage.cachedTokens += tokenUsage.cached_tokens ?? 0;
+    usage.totalTokens += tokenUsage.total_tokens;
+
+    outputChannel.appendLine(
+      `[${new Date().toLocaleTimeString()}] ${modelId ?? 'glm'} — request #${usage.requests}: ` +
+        `prompt ${tokenUsage.prompt_tokens.toLocaleString()} (cached ${(tokenUsage.cached_tokens ?? 0).toLocaleString()}), ` +
+        `completion ${tokenUsage.completion_tokens.toLocaleString()}, ` +
+        `total ${tokenUsage.total_tokens.toLocaleString()} tokens`,
+    );
+
+    updateUsageStatusBar();
+    usageStatusBarItem.show();
+
+    // Throttle quota refreshes so busy sessions don't hammer the monitor endpoint.
+    if (Date.now() - lastQuotaFetchAt > 60_000) {
+      void refreshPlanQuota(false);
+    }
   };
 
   const provider = new GlmChatProvider(authManager, onUsage);
@@ -203,10 +379,21 @@ export function activate(context: vscode.ExtensionContext): void {
     'Set API Key': () => setApiKey(authManager, provider),
     'Clear API Key': () => clearApiKey(authManager, provider),
     'Test Connection': () => testConnection(authManager, provider),
+    'Refresh Plan Usage': () => refreshPlanQuota(true),
+    'Show Usage Log': () => Promise.resolve(outputChannel.show(true)),
   };
+
+  const quotaPollMs = 5 * 60 * 1000;
+  const quotaTimer = setInterval(
+    () => void refreshPlanQuota(false),
+    quotaPollMs,
+  );
+  void refreshPlanQuota(false);
 
   context.subscriptions.push(
     usageStatusBarItem,
+    outputChannel,
+    new vscode.Disposable(() => clearInterval(quotaTimer)),
     vscode.lm.registerLanguageModelChatProvider('zai', provider),
     vscode.commands.registerCommand(
       'glm-models-provider.setApiKey',
