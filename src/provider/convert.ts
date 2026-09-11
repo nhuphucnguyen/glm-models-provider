@@ -163,13 +163,8 @@ function mapRole(
 }
 
 function uint8ArrayToBase64(data: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let i = 0; i < data.length; i += chunkSize) {
-    const chunk = data.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
-  }
-  return Buffer.from(binary, 'binary').toString('base64');
+  // The extension host is always Node, so no chunked binary-string detour.
+  return Buffer.from(data).toString('base64');
 }
 
 export function convertTools(

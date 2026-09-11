@@ -244,8 +244,9 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
     thinking?: Record<string, unknown>;
     reasoningEffort?: string;
   } {
-    // GLM-5.3 family always thinks; requests cannot disable reasoning.
-    // Legacy 'disabled'/'enabled' selections map to explicit effort levels.
+    // GLM-5.3 family always thinks; requests cannot disable reasoning, only
+    // set its depth. Anything unrecognised sends no thinking params at all and
+    // so falls back to the API default.
     const effortFor = (
       mode: string,
     ): {thinking?: Record<string, unknown>; reasoningEffort?: string} => {
@@ -256,10 +257,6 @@ export class GlmChatProvider implements vscode.LanguageModelChatProvider {
           return {thinking: {type: 'enabled'}, reasoningEffort: 'high'};
         case 'max':
           return {thinking: {type: 'enabled'}, reasoningEffort: 'max'};
-        case 'enabled':
-          return {thinking: {type: 'enabled'}};
-        case 'disabled':
-          return {thinking: {type: 'enabled'}, reasoningEffort: 'low'};
         default:
           return {};
       }
