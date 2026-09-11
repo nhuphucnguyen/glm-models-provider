@@ -19,3 +19,5 @@ vitest.config.mts
 tsconfig.test.json
 AGENTS.md
 plan_claude.md
+scripts/**
+.github/**

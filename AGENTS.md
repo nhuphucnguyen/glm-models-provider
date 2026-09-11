@@ -199,11 +199,15 @@ Do not "clean these up" without reading why they exist.
 ## Before committing
 
 ```sh
-npm test && node bundle.mjs
+npm test && node bundle.mjs && node scripts/check-constraints.mjs
 ```
 
-`npm test` already covers compile and lint. Add `node bundle.mjs` because the
-bundle is what ships, and because bundle size is a standing constraint (see the
-dependency section).
+`npm test` already covers compile and lint. The bundle is what ships, and
+`check-constraints.mjs` enforces the three dependency invariants above that
+nothing else can see: the bundle-size budget, `@types/vscode` matching the
+`engines.vscode` floor, and `openai` staying exactly pinned. CI
+(`.github/workflows/ci.yml`) runs the same sequence on Node 22 and 24 — the
+versions VS Code actually ships at the floor and at current — using `npm ci` so
+the lockfile is honored.
 
 `*.vsix` and `out/` are gitignored; don't add them.

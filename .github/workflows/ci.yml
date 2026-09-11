@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A new push supersedes an in-flight run on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Match what VS Code actually ships rather than the newest Node.
+        # 22 is what the engines.vscode floor (1.116) runs; 24 is what current
+        # VS Code (1.137) runs. "latest" would test an environment no user has.
+        # See AGENTS.md, "Check engines.node against VS Code's bundled Node".
+        node-version: ['22', '24']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      # `npm ci` installs from the lockfile. Never `npm install` here: it would
+      # resolve past openai's exact pin and silently grow the bundle, which is
+      # the whole reason the pin exists.
+      #
+      # Note this also runs `prepare` (tsc), so a type error surfaces as an
+      # install failure rather than a test failure. Do not pass
+      # --ignore-scripts to avoid that: esbuild needs its postinstall to fetch
+      # its platform binary, and `node bundle.mjs` would then fail.
+      - run: npm ci
+
+      # compile -> vitest -> lint
+      - run: npm test
+
+      - run: node bundle.mjs
+
+      - name: Check repo constraints
+        run: node scripts/check-constraints.mjs
