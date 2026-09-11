@@ -136,7 +136,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
-    "openai": "^6.34.0",
+    "openai": "6.34.0",
     "secure-json-parse": "^4.1.0",
     "ts-pattern": "^5.9.0"
   },
