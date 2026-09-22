@@ -65,8 +65,12 @@ to the provider, and the provider lists no models until it arrives.
 That copy backs **Test Connection** and plan-quota polling when no key has been
 entered through the picker — it does not, on its own, put models in the picker.
 
+## Usage & Plan Quota
+
+The status bar shows your session usage (requests and tokens) alongside your Z.AI Coding Plan quota — the 5-hour and weekly windows, with remaining percentage and reset time in the tooltip. Quota refreshes automatically every 5 minutes and after each request; run `GLM: Manage Provider` and choose **Refresh Plan Usage** to refresh manually, or **Show Usage Log** for per-request details.
+
 ---
 
 ## License
 
-MIT (c) Denizhan Dakilir
+MIT (c) Denizhan Dakilir, maintained by Nguyen Nhu Phuc
