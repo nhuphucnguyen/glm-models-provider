@@ -2,13 +2,16 @@
 
 Z.AI GLM models as a VS Code Language Model Chat Provider for the Coding Plan.
 
-> **Maintained fork** — the original extension by [DenizhanDaklr](https://github.com/zelosleone/glm-chat-provider) is no longer maintained. This fork continues development with support for the latest GLM-5.3 models.
+> **New in 1.1.0:** GLM-5.4 — Z.AI's new flagship, with image input, a 1M-token context, and lower per-token credit usage than GLM-5.3 on the Coding Plan.
 
-## Why only GLM-5.3 and GLM-5.3-Flash?
+> **Maintained fork** — the original extension by [DenizhanDaklr](https://github.com/zelosleone/glm-chat-provider) is no longer maintained. This fork continues development with support for the latest GLM-5.4 and GLM-5.3 models.
 
-Z.AI has moved the GLM Coding Plan to GLM-5.3 and GLM-5.3-Flash. Per the [official plan overview](https://docs.z.ai/devpack/overview#supported-models), requests for GLM-5.2/GLM-5.1 are **automatically routed to GLM-5.3**, and requests for GLM-4.7 are routed to GLM-5.3-Flash -- the legacy models no longer exist as distinct options. Keeping them in the picker would only add clutter:
+## Why only GLM-5.4, GLM-5.3 and GLM-5.3-Flash?
 
-- **GLM-5.3** is the current flagship -- same price as GLM-5.2, with significantly stronger coding and long-horizon performance, plus a full 1M-token context.
+Z.AI has moved the GLM Coding Plan to GLM-5.4, GLM-5.3 and GLM-5.3-Flash. Per the [official plan overview](https://docs.z.ai/devpack/overview#supported-models), requests for GLM-5.2/GLM-5.1 are **automatically routed to GLM-5.3**, and requests for GLM-4.7 are routed to GLM-5.3-Flash -- the legacy models no longer exist as distinct options. Keeping them in the picker would only add clutter:
+
+- **GLM-5.4** is the new flagship -- the first built on the Loop Transformer architecture, with vision input, the full 1M-token context, and 1.5× quota on weekly plans. Available to all Coding Plan users ([GLM-5.4 docs](https://docs.z.ai/guides/llm/glm-5.4)).
+- **GLM-5.3** is the previous flagship -- same price as GLM-5.2, with significantly stronger coding and long-horizon performance, plus a full 1M-token context.
 - **GLM-5.3-Flash** outperforms GLM-5.2 while costing roughly 20x less, and it is natively multimodal (image input).
 
 ### Text Models
@@ -21,6 +24,7 @@ Z.AI has moved the GLM Coding Plan to GLM-5.3 and GLM-5.3-Flash. Per the [offici
 
 | Model | Context | Output | Image Input | Tool Calling |
 |---|---|---|---|---|
+| GLM-5.4 | 1M | 128K | Yes | Yes |
 | GLM-5.3-Flash | 1M | 128K | Yes | Yes |
 
 ## Commands
@@ -33,7 +37,7 @@ Z.AI has moved the GLM Coding Plan to GLM-5.3 and GLM-5.3-Flash. Per the [offici
 
 ## Thinking Mode
 
-GLM-5.3 models always use reasoning/thinking -- it cannot be disabled. You can control the reasoning depth with `reasoning_effort`.
+GLM-5.3 and GLM-5.4 models always use reasoning/thinking -- it cannot be disabled. You can control the reasoning depth with `reasoning_effort`.
 
 Run `GLM: Set Thinking Effort` from the Command Palette to choose between:
 
@@ -46,7 +50,7 @@ The selected value is persisted in your VS Code settings under `glm-models-provi
 
 ## Sampling Defaults
 
-Per the [official GLM-5.3 docs](https://docs.z.ai/guides/llm/glm-5.3), Z.AI recommends `temperature: 1.0` and `top_p: 0.95` for GLM-5.3 models, so the extension applies them by default:
+Per the [official GLM-5.3 docs](https://docs.z.ai/guides/llm/glm-5.3), Z.AI recommends `temperature: 1.0` and `top_p: 0.95` for GLM-5.3 models, so the extension applies them by default to all listed models:
 
 - The model picker's temperature setting defaults to **Max (1.0)**. You can still pick a preset or custom value per model, or run `GLM: Set Temperature`.
 - Every request sends `top_p: 0.95` (configurable via `glm-models-provider.topP`).
@@ -56,7 +60,7 @@ Per the [official GLM-5.3 docs](https://docs.z.ai/guides/llm/glm-5.3), Z.AI reco
 
 1. Open the model picker in VS Code's Chat view and choose **Manage Models…**
 2. Select **Z.AI GLM** and enter your API key when prompted
-3. Pick **GLM-5.3** or **GLM-5.3 Flash** from the model picker
+3. Pick **GLM-5.4**, **GLM-5.3**, or **GLM-5.3 Flash** from the model picker
 
 Step 1 is what makes the models appear. VS Code passes the key it collects there
 to the provider, and the provider lists no models until it arrives.

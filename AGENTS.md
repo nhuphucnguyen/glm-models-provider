@@ -168,9 +168,9 @@ Do not "clean these up" without reading why they exist.
 - **`LanguageModelThinkingPart` is still proposed API** — zero occurrences in
   stable `@types/vscode` as of 1.137. The runtime feature-detection shim in
   `src/provider/thinking.ts` is required, not legacy. Re-check before removing.
-- **GLM-5.3 always reasons.** Thinking cannot be disabled; only the effort level
-  varies. A `disabled` selection maps to `reasoning_effort: 'low'`, not to
-  thinking off (`resolveThinking` in `src/provider/index.ts`).
+- **GLM-5.3 and GLM-5.4 always reason.** Thinking cannot be disabled; only the
+  effort level varies. A `disabled` selection maps to `reasoning_effort: 'low'`,
+  not to thinking off (`resolveThinking` in `src/provider/index.ts`).
 - **`configuration` on `PrepareLanguageModelChatModelOptions` is real API, and
   the interface is churning.** Stable `@types/vscode` (1.116 and 1.137) declares
   `{silent}` only; `vscode.proposed.chatProvider.d.ts` declares `{configuration}`
@@ -189,9 +189,9 @@ Do not "clean these up" without reading why they exist.
 - **API keys are validated as plain ASCII** (`src/api.ts`) because a smart quote
   or non-breaking space from a console copy-paste otherwise fails deep inside
   header encoding with an unhelpful error.
-- **Only GLM-5.3 and GLM-5.3-Flash are listed, on purpose.** Z.AI auto-routes
-  legacy model ids to these two, so listing more would be picker clutter. See
-  README.
+- **Only GLM-5.4, GLM-5.3 and GLM-5.3-Flash are listed, on purpose.** Z.AI
+  auto-routes legacy model ids to these, so listing more would be picker
+  clutter. See README.
 - **The base URL is the Coding Plan endpoint** (`/api/coding/paas/v4`), not the
   general Z.AI API path. Quota polling uses `/api/monitor/usage/quota/limit`,
   whose `unit` enum is `1=day, 3=hour, 5=minute, 6=week` (`src/quota.ts`).

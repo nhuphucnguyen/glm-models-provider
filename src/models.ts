@@ -130,6 +130,17 @@ export interface GlmModelDefinition {
 
 export const GLM_MODEL_DEFINITIONS: readonly GlmModelDefinition[] = [
   {
+    id: 'glm-5.4',
+    name: 'GLM-5.4',
+    family: 'glm',
+    version: '5.4',
+    detail: 'Z.AI',
+    maxInputTokens: 1000000,
+    maxOutputTokens: 131072,
+    capabilities: {imageInput: true, toolCalling: true, thinking: true},
+    thinkingSupport: 'forced-effort',
+  },
+  {
     id: 'glm-5.3',
     name: 'GLM-5.3',
     family: 'glm',

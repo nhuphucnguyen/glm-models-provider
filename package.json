@@ -1,8 +1,8 @@
 {
   "name": "glm-models-provider",
   "displayName": "GLM Models Provider",
-  "description": "GLM-5.3 & GLM-5.3-Flash (1M context) as a VS Code Language Model Chat Provider",
-  "version": "1.0.0",
+  "description": "New: GLM-5.4 (Loop Transformer, vision, 1M context) + GLM-5.3 & GLM-5.3-Flash in VS Code Chat via the Z.AI Coding Plan",
+  "version": "1.1.0",
   "publisher": "phucnguyennhu",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -19,7 +19,12 @@
   ],
   "keywords": [
     "glm",
+    "glm-5.4",
+    "glm-5.3",
     "Z.AI",
+    "zai",
+    "coding plan",
+    "language model",
     "ai",
     "chat",
     "copilot"
@@ -71,7 +76,7 @@
             "Enhanced reasoning",
             "Deep reasoning — best for complex tasks"
           ],
-          "description": "Default thinking effort for GLM models (GLM-5.3 always thinks and cannot be disabled)"
+          "description": "Default thinking effort for GLM models (GLM-5.3/GLM-5.4 always think and cannot be disabled)"
         },
         "glm-models-provider.temperature": {
           "type": "number",
